@@ -2,6 +2,7 @@ import argparse
 from tqdm import tqdm
 
 import torch
+from torch.cuda.amp import autocast, GradScaler
 
 from model import Model
 from datasets import Dataset
@@ -30,6 +31,7 @@ def get_args():
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--num_runs', type=int, default=10)
     parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--amp', default=False, action='store_true')
     parser.add_argument('--verbose', default=False, action='store_true')
 
     args = parser.parse_args()
@@ -40,20 +42,27 @@ def get_args():
     return args
 
 
-def train_step(model, dataset, optimizer, scheduler):
+def train_step(model, dataset, optimizer, scheduler, scaler, amp=False):
     model.train()
-    logits = model(graph=dataset.graph, x=dataset.node_features)
-    loss = dataset.loss_fn(input=logits[dataset.train_idx], target=dataset.labels[dataset.train_idx])
-    loss.backward()
-    optimizer.step()
+
+    with autocast(enabled=amp):
+        logits = model(graph=dataset.graph, x=dataset.node_features)
+        loss = dataset.loss_fn(input=logits[dataset.train_idx], target=dataset.labels[dataset.train_idx])
+
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
     optimizer.zero_grad()
     scheduler.step()
 
 
 @torch.no_grad()
-def evaluate(model, dataset):
+def evaluate(model, dataset, amp=False):
     model.eval()
-    logits = model(graph=dataset.graph, x=dataset.node_features)
+
+    with autocast(enabled=amp):
+        logits = model(graph=dataset.graph, x=dataset.node_features)
+
     metrics = dataset.compute_metrics(logits)
 
     return metrics
@@ -79,14 +88,16 @@ def main():
 
         parameter_groups = get_parameter_groups(model)
         optimizer = torch.optim.AdamW(parameter_groups, lr=args.lr, weight_decay=args.weight_decay)
+        scaler = GradScaler(enabled=args.amp)
         scheduler = get_lr_scheduler_with_warmup(optimizer=optimizer, num_warmup_steps=args.num_warmup_steps,
                                                  num_steps=args.num_steps, warmup_proportion=args.warmup_proportion)
 
         logger.start_run(run)
         with tqdm(total=args.num_steps, desc=f'Run {run}', disable=args.verbose) as progress_bar:
             for step in range(1, args.num_steps + 1):
-                train_step(model=model, dataset=dataset, optimizer=optimizer, scheduler=scheduler)
-                metrics = evaluate(model=model, dataset=dataset)
+                train_step(model=model, dataset=dataset, optimizer=optimizer, scheduler=scheduler,
+                           scaler=scaler, amp=args.amp)
+                metrics = evaluate(model=model, dataset=dataset, amp=args.amp)
                 logger.update_metrics(metrics=metrics, step=step)
 
                 progress_bar.update()
