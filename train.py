@@ -29,6 +29,8 @@ def get_args():
                         help='If None, warmup_proportion is used instead.')
     parser.add_argument('--warmup_proportion', type=float, default=0, help='Only used if num_warmup_steps is None.')
     parser.add_argument('--weight_decay', type=float, default=0)
+    parser.add_argument('--input_labels_proportion', type=float, default=0)
+    parser.add_argument('--label_embedding_dim', type=int, default=128)
     parser.add_argument('--num_runs', type=int, default=10)
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--amp', default=False, action='store_true')
@@ -45,9 +47,11 @@ def get_args():
 def train_step(model, dataset, optimizer, scheduler, scaler, amp=False):
     model.train()
 
+    cur_train_idx, cur_label_emb_idx = dataset.get_train_idx_and_label_idx_for_train_step()
+
     with autocast(enabled=amp):
-        logits = model(graph=dataset.graph, x=dataset.node_features)
-        loss = dataset.loss_fn(input=logits[dataset.train_idx], target=dataset.labels[dataset.train_idx])
+        logits = model(graph=dataset.graph, x=dataset.node_features, label_emb_idx=cur_label_emb_idx)
+        loss = dataset.loss_fn(input=logits[cur_train_idx], target=dataset.labels[cur_train_idx])
 
     scaler.scale(loss).backward()
     scaler.step(optimizer)
@@ -60,8 +64,10 @@ def train_step(model, dataset, optimizer, scheduler, scaler, amp=False):
 def evaluate(model, dataset, amp=False):
     model.eval()
 
+    label_emb_idx_for_eval = dataset.get_label_idx_for_evaluation()
+
     with autocast(enabled=amp):
-        logits = model(graph=dataset.graph, x=dataset.node_features)
+        logits = model(graph=dataset.graph, x=dataset.node_features, label_emb_idx=label_emb_idx_for_eval)
 
     metrics = dataset.compute_metrics(logits)
 
@@ -70,7 +76,8 @@ def evaluate(model, dataset, amp=False):
 
 def main():
     args = get_args()
-    dataset = Dataset(name=args.dataset, add_self_loops=(args.model in ['GCN', 'GAT', 'GT']), device=args.device)
+    dataset = Dataset(name=args.dataset, add_self_loops=(args.model in ['GCN', 'GAT', 'GT']),
+                      input_labels_proportion=args.input_labels_proportion, device=args.device)
     logger = Logger(args, metric=dataset.metric)
 
     for run in range(1, args.num_runs + 1):
@@ -82,7 +89,9 @@ def main():
                       hidden_dim_multiplier=args.hidden_dim_multiplier,
                       num_heads=args.num_heads,
                       normalization=args.normalization,
-                      dropout=args.dropout)
+                      dropout=args.dropout,
+                      use_label_embeddings=(args.input_labels_proportion > 0),
+                      label_embedding_dim=args.label_embedding_dim)
 
         model.to(args.device)
 

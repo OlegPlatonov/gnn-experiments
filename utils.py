@@ -85,7 +85,7 @@ class Logger:
 
 
 def get_parameter_groups(model):
-    no_weight_decay_names = ['bias', 'normalization']
+    no_weight_decay_names = ['bias', 'normalization', 'label_embeddings']
 
     parameter_groups = [
         {
