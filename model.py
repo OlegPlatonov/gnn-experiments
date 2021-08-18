@@ -22,7 +22,8 @@ NORMALIZATION = {
 
 class Model(nn.Module):
     def __init__(self, model_name, num_layers, input_dim, hidden_dim, output_dim, hidden_dim_multiplier, num_heads,
-                 normalization, dropout, use_label_embeddings=False, label_embedding_dim=128):
+                 normalization, dropout, use_label_embeddings=False, label_embedding_bag=False,
+                 num_label_embeddings=None, label_embedding_dim=128):
 
         super().__init__()
 
@@ -31,7 +32,13 @@ class Model(nn.Module):
         self.use_label_embeddings = use_label_embeddings
         if use_label_embeddings:
             input_dim += label_embedding_dim
-            self.label_embeddings = nn.Embedding(num_embeddings=output_dim + 1, embedding_dim=label_embedding_dim)
+            if label_embedding_bag:
+                self.label_embeddings = nn.EmbeddingBag(num_embeddings=num_label_embeddings,
+                                                        embedding_dim=label_embedding_dim,
+                                                        mode='mean')
+            else:
+                self.label_embeddings = nn.Embedding(num_embeddings=num_label_embeddings,
+                                                     embedding_dim=label_embedding_dim)
 
         self.input_linear = nn.Linear(in_features=input_dim, out_features=hidden_dim)
         self.dropout = nn.Dropout(p=dropout)

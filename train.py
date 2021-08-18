@@ -91,6 +91,8 @@ def main():
                       normalization=args.normalization,
                       dropout=args.dropout,
                       use_label_embeddings=(args.input_labels_proportion > 0),
+                      label_embedding_bag=dataset.multilabel,
+                      num_label_embeddings=dataset.num_label_embeddings,
                       label_embedding_dim=args.label_embedding_dim)
 
         model.to(args.device)
