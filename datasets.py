@@ -10,10 +10,6 @@ class Dataset:
         if name not in ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins']:
             raise ValueError(f'Dataset {name} is not supported.')
 
-        if name == 'ogbn-proteins' and input_labels_proportion > 0:
-            raise ValueError('Label embeddings are not supported for multilabel classification task. '
-                             'input_labels_proportion should be set to 0.')
-
         print('Preparing data...')
 
         dataset = DglNodePropPredDataset(name, root='data')
@@ -64,6 +60,13 @@ class Dataset:
         self.evaluator = Evaluator(name)
 
         self.input_labels_proportion = input_labels_proportion
+        self.num_label_embeddings = self.num_targets * 2 + 1 if multilabel else self.num_targets + 1
+
+    def get_label_embeddings_idx(self, labels):
+        if self.multilabel:
+            return torch.arange(start=1, end=self.num_label_embeddings, step=2, device=self.device) + labels.long()
+        else:
+            return labels + 1
 
     def get_train_idx_and_label_idx_for_train_step(self):
         if self.input_labels_proportion == 0:
@@ -75,10 +78,13 @@ class Dataset:
 
         cur_train_idx = self.train_idx[torch.where(~train_mask)]
 
+        if self.multilabel:
+            train_mask = train_mask.unsqueeze(1)
+
         full_mask = torch.zeros_like(self.labels, dtype=torch.bool, device=self.device)
         full_mask[self.train_idx] = train_mask
 
-        cur_label_emb_idx = (self.labels + 1) * full_mask
+        cur_label_emb_idx = self.get_label_embeddings_idx(self.labels) * full_mask
 
         return cur_train_idx, cur_label_emb_idx
 
@@ -86,8 +92,8 @@ class Dataset:
         if self.input_labels_proportion == 0:
             return None
 
-        label_emb_idx_for_eval = torch.zeros_like(self.labels, device=self.device)
-        label_emb_idx_for_eval[self.train_idx] = self.labels[self.train_idx] + 1
+        label_emb_idx_for_eval = torch.zeros_like(self.labels, dtype=torch.long, device=self.device)
+        label_emb_idx_for_eval[self.train_idx] = self.get_label_embeddings_idx(self.labels[self.train_idx])
 
         return label_emb_idx_for_eval
 
