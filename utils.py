@@ -39,6 +39,7 @@ class Logger:
                   f'test {self.metric}: {metrics[f"test {self.metric}"]:.4f}')
 
     def finish_run(self):
+        self.save_metrics()
         print(f'Finished run {self.cur_run}. '
               f'Best val {self.metric}: {self.val_metrics[-1]:.4f}, '
               f'corresponding test {self.metric}: {self.test_metrics[-1]:.4f} '
@@ -65,11 +66,15 @@ class Logger:
         with open(os.path.join(self.save_dir, 'metrics.yaml'), 'w') as file:
             yaml.safe_dump(metrics, file, sort_keys=False)
 
-        print(f'Finished {num_runs} runs.')
-        print(f'Val {self.metric} mean: {val_metric_mean:.4f}')
-        print(f'Val {self.metric} std: {val_metric_std:.4f}')
-        print(f'Test {self.metric} mean: {test_metric_mean:.4f}')
-        print(f'Test {self.metric} std: {test_metric_std:.4f}')
+    def print_metrics_summary(self):
+        with open(os.path.join(self.save_dir, 'metrics.yaml'), 'r') as file:
+            metrics = yaml.safe_load(file)
+
+        print(f'Finished {metrics["num runs"]} runs.')
+        print(f'Val {self.metric} mean: {metrics[f"val {self.metric} mean"]:.4f}')
+        print(f'Val {self.metric} std: {metrics[f"val {self.metric} std"]:.4f}')
+        print(f'Test {self.metric} mean: {metrics[f"test {self.metric} mean"]:.4f}')
+        print(f'Test {self.metric} std: {metrics[f"test {self.metric} std"]:.4f}')
 
     @staticmethod
     def get_save_dir(base_dir, dataset, name):
