@@ -117,7 +117,7 @@ def main():
         logger.finish_run()
         model.cpu()
 
-    logger.save_metrics()
+    logger.print_metrics_summary()
 
 
 if __name__ == '__main__':
