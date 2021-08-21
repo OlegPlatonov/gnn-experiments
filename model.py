@@ -72,6 +72,6 @@ class Model(nn.Module):
             x = residual_module(graph, x)
 
         x = self.output_normalization(x)
-        x = self.output_linear(x)
+        x = self.output_linear(x).squeeze(1)
 
         return x

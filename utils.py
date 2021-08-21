@@ -5,7 +5,7 @@ import torch
 
 
 class Logger:
-    def __init__(self, args, metric):
+    def __init__(self, args, metric, num_data_splits):
         self.save_dir = self.get_save_dir(base_dir=args.save_dir, dataset=args.dataset, name=args.name)
         self.verbose = args.verbose
         self.metric = metric
@@ -13,18 +13,25 @@ class Logger:
         self.test_metrics = []
         self.best_steps = []
         self.num_runs = args.num_runs
+        self.num_data_splits = num_data_splits
         self.cur_run = None
+        self.cur_data_split = None
 
         print(f'Results will be saved to {self.save_dir}.')
         with open(os.path.join(self.save_dir, 'args.yaml'), 'w') as file:
             yaml.safe_dump(vars(args), file, sort_keys=False)
 
-    def start_run(self, run):
+    def start_run(self, run, data_split):
         self.cur_run = run
+        self.cur_data_split = data_split
         self.val_metrics.append(0)
         self.test_metrics.append(0)
         self.best_steps.append(None)
-        print(f'Starting run {run}/{self.num_runs}...')
+
+        if self.num_data_splits == 1:
+            print(f'Starting run {run}/{self.num_runs}...')
+        else:
+            print(f'Starting run {run}/{self.num_runs} (using data split {data_split}/{self.num_data_splits})...')
 
     def update_metrics(self, metrics, step):
         if metrics[f'val {self.metric}'] > self.val_metrics[-1]:

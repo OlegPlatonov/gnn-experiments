@@ -15,7 +15,10 @@ def get_args():
     parser.add_argument('--name', type=str, default=None, help='Experiment name. If None, model name is used.')
     parser.add_argument('--save_dir', type=str, default='experiments', help='Base directory for saving information.')
     parser.add_argument('--dataset', type=str, default='ogbn-arxiv',
-                        choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins'])
+                        choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins',
+                                 'squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
+                                 'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru',
+                                 'flickr', 'yelp'])
     parser.add_argument('--model', type=str, default='GT', choices=['ResNet', 'GCN', 'SAGE', 'GAT', 'GT'])
     parser.add_argument('--num_layers', type=int, default=5)
     parser.add_argument('--hidden_dim', type=int, default=512)
@@ -32,6 +35,8 @@ def get_args():
     parser.add_argument('--input_labels_proportion', type=float, default=0)
     parser.add_argument('--label_embedding_dim', type=int, default=128)
     parser.add_argument('--num_runs', type=int, default=10)
+    parser.add_argument('--num_data_splits', type=int, default=10,
+                        help='Only used for datasets that do not have standard data splits.')
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--amp', default=False, action='store_true')
     parser.add_argument('--verbose', default=False, action='store_true')
@@ -77,8 +82,9 @@ def evaluate(model, dataset, amp=False):
 def main():
     args = get_args()
     dataset = Dataset(name=args.dataset, add_self_loops=(args.model in ['GCN', 'GAT', 'GT']),
-                      input_labels_proportion=args.input_labels_proportion, device=args.device)
-    logger = Logger(args, metric=dataset.metric)
+                      num_data_splits=args.num_data_splits, input_labels_proportion=args.input_labels_proportion,
+                      device=args.device)
+    logger = Logger(args, metric=dataset.metric, num_data_splits=dataset.num_data_splits)
 
     for run in range(1, args.num_runs + 1):
         model = Model(model_name=args.model,
@@ -103,7 +109,7 @@ def main():
         scheduler = get_lr_scheduler_with_warmup(optimizer=optimizer, num_warmup_steps=args.num_warmup_steps,
                                                  num_steps=args.num_steps, warmup_proportion=args.warmup_proportion)
 
-        logger.start_run(run)
+        logger.start_run(run=run, data_split=dataset.cur_data_split + 1)
         with tqdm(total=args.num_steps, desc=f'Run {run}', disable=args.verbose) as progress_bar:
             for step in range(1, args.num_steps + 1):
                 train_step(model=model, dataset=dataset, optimizer=optimizer, scheduler=scheduler,
@@ -116,6 +122,7 @@ def main():
 
         logger.finish_run()
         model.cpu()
+        dataset.next_data_split()
 
     logger.print_metrics_summary()
 

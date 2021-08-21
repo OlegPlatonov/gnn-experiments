@@ -2,13 +2,17 @@ name: gnn
 channels:
   - pytorch
   - dglteam
+  - pyg
+  - conda-forge
 dependencies:
   - pip
   - tqdm
   - pyyaml
   - numpy
+  - scikit-learn
   - cudatoolkit=11.3
   - pytorch
   - dgl-cuda11.3
+  - pyg
   - pip:
     - ogb
