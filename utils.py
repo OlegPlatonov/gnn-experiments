@@ -5,11 +5,12 @@ import torch
 
 
 class Logger:
-    def __init__(self, args):
+    def __init__(self, args, metric):
         self.save_dir = self.get_save_dir(base_dir=args.save_dir, dataset=args.dataset, name=args.name)
         self.verbose = args.verbose
-        self.val_accuracies = []
-        self.test_accuracies = []
+        self.metric = metric
+        self.val_metrics = []
+        self.test_metrics = []
         self.best_steps = []
         self.num_runs = args.num_runs
         self.cur_run = None
@@ -20,44 +21,44 @@ class Logger:
 
     def start_run(self, run):
         self.cur_run = run
-        self.val_accuracies.append(0)
-        self.test_accuracies.append(0)
+        self.val_metrics.append(0)
+        self.test_metrics.append(0)
         self.best_steps.append(None)
         print(f'Starting run {run}/{self.num_runs}...')
 
     def update_metrics(self, metrics, step):
-        if metrics['val accuracy'] > self.val_accuracies[-1]:
-            self.val_accuracies[-1] = metrics['val accuracy']
-            self.test_accuracies[-1] = metrics['test accuracy']
+        if metrics[f'val {self.metric}'] > self.val_metrics[-1]:
+            self.val_metrics[-1] = metrics[f'val {self.metric}']
+            self.test_metrics[-1] = metrics[f'test {self.metric}']
             self.best_steps[-1] = step
 
         if self.verbose:
             print(f'run: {self.cur_run:02d}, step: {step:03d}, '
-                  f'train accuracy: {metrics["train accuracy"]:.4f}, '
-                  f'val accuracy: {metrics["val accuracy"]:.4f}, '
-                  f'test accuracy: {metrics["test accuracy"]:.4f}')
+                  f'train {self.metric}: {metrics[f"train {self.metric}"]:.4f}, '
+                  f'val {self.metric}: {metrics[f"val {self.metric}"]:.4f}, '
+                  f'test {self.metric}: {metrics[f"test {self.metric}"]:.4f}')
 
     def finish_run(self):
         print(f'Finished run {self.cur_run}. '
-              f'Best val accuracy: {self.val_accuracies[-1]:.4f}, '
-              f'corresponding test accuracy: {self.test_accuracies[-1]:.4f} '
+              f'Best val {self.metric}: {self.val_metrics[-1]:.4f}, '
+              f'corresponding test {self.metric}: {self.test_metrics[-1]:.4f} '
               f'(step {self.best_steps[-1]}).\n')
 
     def save_metrics(self):
-        num_runs = len(self.val_accuracies)
-        val_accuracy_mean = np.mean(self.val_accuracies).item()
-        val_accuracy_std = np.std(self.val_accuracies, ddof=1).item() if len(self.val_accuracies) > 1 else np.nan
-        test_accuracy_mean = np.mean(self.test_accuracies).item()
-        test_accuracy_std = np.std(self.test_accuracies, ddof=1).item() if len(self.test_accuracies) > 1 else np.nan
+        num_runs = len(self.val_metrics)
+        val_metric_mean = np.mean(self.val_metrics).item()
+        val_metric_std = np.std(self.val_metrics, ddof=1).item() if len(self.val_metrics) > 1 else np.nan
+        test_metric_mean = np.mean(self.test_metrics).item()
+        test_metric_std = np.std(self.test_metrics, ddof=1).item() if len(self.test_metrics) > 1 else np.nan
 
         metrics = {
             'num runs': num_runs,
-            'val accuracy mean': val_accuracy_mean,
-            'val accuracy std': val_accuracy_std,
-            'test accuracy mean': test_accuracy_mean,
-            'test accuracy std': test_accuracy_std,
-            'val accuracy values': self.val_accuracies,
-            'test accuracy values': self.test_accuracies,
+            f'val {self.metric} mean': val_metric_mean,
+            f'val {self.metric} std': val_metric_std,
+            f'test {self.metric} mean': test_metric_mean,
+            f'test {self.metric} std': test_metric_std,
+            f'val {self.metric} values': self.val_metrics,
+            f'test {self.metric} values': self.test_metrics,
             'best steps': self.best_steps
         }
 
@@ -65,10 +66,10 @@ class Logger:
             yaml.safe_dump(metrics, file, sort_keys=False)
 
         print(f'Finished {num_runs} runs.')
-        print(f'Val accuracy mean: {val_accuracy_mean:.4f}')
-        print(f'Val accuracy std: {val_accuracy_std:.4f}')
-        print(f'Test accuracy mean: {test_accuracy_mean:.4f}')
-        print(f'Test accuracy std: {test_accuracy_std:.4f}')
+        print(f'Val {self.metric} mean: {val_metric_mean:.4f}')
+        print(f'Val {self.metric} std: {val_metric_std:.4f}')
+        print(f'Test {self.metric} mean: {test_metric_mean:.4f}')
+        print(f'Test {self.metric} std: {test_metric_std:.4f}')
 
     @staticmethod
     def get_save_dir(base_dir, dataset, name):

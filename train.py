@@ -2,7 +2,6 @@ import argparse
 from tqdm import tqdm
 
 import torch
-from torch.nn import functional as F
 
 from model import Model
 from datasets import Dataset
@@ -15,7 +14,7 @@ def get_args():
     parser.add_argument('--name', type=str, default=None, help='Experiment name. If None, model name is used.')
     parser.add_argument('--save_dir', type=str, default='experiments', help='Base directory for saving information.')
     parser.add_argument('--dataset', type=str, default='ogbn-arxiv',
-                        choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M'])
+                        choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins'])
     parser.add_argument('--model', type=str, default='GT', choices=['ResNet', 'GCN', 'SAGE', 'GAT', 'GT'])
     parser.add_argument('--num_layers', type=int, default=5)
     parser.add_argument('--hidden_dim', type=int, default=512)
@@ -44,7 +43,7 @@ def get_args():
 def train_step(model, dataset, optimizer, scheduler):
     model.train()
     logits = model(graph=dataset.graph, x=dataset.node_features)
-    loss = F.cross_entropy(input=logits[dataset.train_idx], target=dataset.labels[dataset.train_idx])
+    loss = dataset.loss_fn(input=logits[dataset.train_idx], target=dataset.labels[dataset.train_idx])
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
@@ -55,17 +54,15 @@ def train_step(model, dataset, optimizer, scheduler):
 def evaluate(model, dataset):
     model.eval()
     logits = model(graph=dataset.graph, x=dataset.node_features)
-    preds = logits.argmax(axis=1)
-    metrics = dataset.compute_metrics(preds)
+    metrics = dataset.compute_metrics(logits)
 
     return metrics
 
 
 def main():
     args = get_args()
-    logger = Logger(args)
-
     dataset = Dataset(name=args.dataset, add_self_loops=(args.model in ['GCN', 'GAT', 'GT']), device=args.device)
+    logger = Logger(args, metric=dataset.metric)
 
     for run in range(1, args.num_runs + 1):
         model = Model(model_name=args.model,
