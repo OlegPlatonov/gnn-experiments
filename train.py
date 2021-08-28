@@ -34,6 +34,7 @@ def get_args():
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--input_labels_proportion', type=float, default=0)
     parser.add_argument('--label_embedding_dim', type=int, default=128)
+    parser.add_argument('--use_graphlet_features', default=False, action='store_true')
     parser.add_argument('--num_runs', type=int, default=10)
     parser.add_argument('--num_data_splits', type=int, default=10,
                         help='Only used for datasets that do not have standard data splits.')
@@ -81,9 +82,14 @@ def evaluate(model, dataset, amp=False):
 
 def main():
     args = get_args()
-    dataset = Dataset(name=args.dataset, add_self_loops=(args.model in ['GCN', 'GAT', 'GT']),
-                      num_data_splits=args.num_data_splits, input_labels_proportion=args.input_labels_proportion,
+
+    dataset = Dataset(name=args.dataset,
+                      add_self_loops=(args.model in ['GCN', 'GAT', 'GT']),
+                      num_data_splits=args.num_data_splits,
+                      input_labels_proportion=args.input_labels_proportion,
+                      use_graphlet_features=args.use_graphlet_features,
                       device=args.device)
+
     logger = Logger(args, metric=dataset.metric, num_data_splits=dataset.num_data_splits)
 
     for run in range(1, args.num_runs + 1):
