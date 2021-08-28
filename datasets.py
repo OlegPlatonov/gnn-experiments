@@ -12,13 +12,17 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 
+from features import compute_graphlet_degree_vectors, transform_graphlet_degree_vectors_to_binary_features
+
 
 class Dataset:
     ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins']
     pyg_dataset_names = ['squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp']
 
-    def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0, device='cpu'):
+    def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
+                 use_graphlet_features=False, device='cpu'):
+
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
 
@@ -38,6 +42,10 @@ class Dataset:
 
         if num_targets == 1 or multilabel:
             labels = labels.float()
+
+        if use_graphlet_features:
+            graphlet_features = self.get_graphlet_features(name, graph)
+            node_features = torch.cat([node_features, graphlet_features], axis=1)
 
         graph = graph.to(device)
         node_features = node_features.to(device)
@@ -206,6 +214,35 @@ class Dataset:
                 test_idx_list.append(test_idx.sort()[0])
 
         return train_idx_list, val_idx_list, test_idx_list
+
+    @classmethod
+    def get_graphlet_features(cls, name, graph):
+        data_dir = cls.get_data_dir(name)
+        file = os.path.join(data_dir, 'graphlet_degree_vectors.pt')
+        if os.path.isfile(file):
+            graphlet_degree_vectors = torch.load(file)
+        else:
+            print('Computing graphlet degree vectors...')
+            graphlet_degree_vectors = compute_graphlet_degree_vectors(graph)
+            torch.save(graphlet_degree_vectors, file)
+            print(f'Graphlet degree vectors were saved to {file}.')
+
+        graphlet_features = transform_graphlet_degree_vectors_to_binary_features(graphlet_degree_vectors)
+
+        return graphlet_features
+
+    @staticmethod
+    def get_data_dir(name):
+        if name in Dataset.ogb_dataset_names:
+            name = name.replace('-', '_')
+            return os.path.join('data', name)
+        elif name in ['squirrel', 'chameleon']:
+            return os.path.join('data', name, 'geom_gcn')
+        elif name in ['twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru']:
+            country = name.split('-')[1].upper()
+            return os.path.join('data', 'twitch', country)
+        else:
+            return os.path.join('data', name)
 
     def get_label_embeddings_idx(self, labels):
         if self.multilabel:

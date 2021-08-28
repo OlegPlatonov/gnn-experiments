@@ -16,3 +16,4 @@ dependencies:
   - pyg
   - pip:
     - ogb
+    - git+https://github.com/qema/orca-py.git
