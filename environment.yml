@@ -10,6 +10,7 @@ dependencies:
   - pyyaml
   - numpy
   - scikit-learn
+  - graph-tool
   - cudatoolkit=11.3
   - pytorch
   - dgl-cuda11.3

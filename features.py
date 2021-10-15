@@ -1,5 +1,41 @@
+import numpy as np
 import torch
 import orcastr
+from tqdm import tqdm
+
+from graph_tool import Graph as GTGraph
+from graph_tool.stats import remove_self_loops, remove_parallel_edges
+from graph_tool.inference import minimize_blockmodel_dl
+
+
+def dgl_to_gt(dgl_graph):
+    edge_list = torch.stack(dgl_graph.edges()).T.cpu().numpy()
+
+    gt_graph = GTGraph(directed=False)
+    gt_graph.add_edge_list(edge_list)
+    remove_self_loops(gt_graph)
+    remove_parallel_edges(gt_graph)
+
+    return gt_graph
+
+
+def get_sbm_groups(graph, num_fits=10):
+    graph = dgl_to_gt(graph)
+
+    print(f'The inference algorithm is stochastic and it will be run {num_fits} times...')
+    best_state = None
+    for _ in tqdm(range(num_fits)):
+        state = minimize_blockmodel_dl(graph)
+        if best_state is None or state.entropy() < best_state.entropy():
+            best_state = state
+
+    groups = list(best_state.get_blocks())
+    group_ids = np.unique(groups)
+    old_id_to_new_id = {old_id: new_id for new_id, old_id in enumerate(group_ids)}
+    groups = [old_id_to_new_id[old_id] for old_id in groups]
+    groups = torch.tensor(groups)
+
+    return groups
 
 
 def compute_graphlet_degree_vectors(graph, max_graphlet_size=5):
