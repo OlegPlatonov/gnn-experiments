@@ -12,7 +12,9 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 
-from features import compute_graphlet_degree_vectors, transform_graphlet_degree_vectors_to_binary_features
+from features import (get_sbm_groups,
+                      compute_graphlet_degree_vectors,
+                      transform_graphlet_degree_vectors_to_binary_features)
 
 
 class Dataset:
@@ -21,7 +23,7 @@ class Dataset:
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
-                 use_graphlet_features=False, device='cpu'):
+                 use_sbm_features=False, use_graphlet_features=False, device='cpu'):
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -42,6 +44,10 @@ class Dataset:
 
         if num_targets == 1 or multilabel:
             labels = labels.float()
+
+        if use_sbm_features:
+            sbm_features = self.get_sbm_features(name, graph)
+            node_features = torch.cat([node_features, sbm_features], axis=1)
 
         if use_graphlet_features:
             graphlet_features = self.get_graphlet_features(name, graph)
@@ -214,6 +220,22 @@ class Dataset:
                 test_idx_list.append(test_idx.sort()[0])
 
         return train_idx_list, val_idx_list, test_idx_list
+
+    @classmethod
+    def get_sbm_features(cls, name, graph):
+        data_dir = cls.get_data_dir(name)
+        file = os.path.join(data_dir, 'sbm_groups.pt')
+        if os.path.isfile(file):
+            sbm_groups = torch.load(file)
+        else:
+            print('Fitting the SBM...')
+            sbm_groups = get_sbm_groups(graph)
+            torch.save(sbm_groups, file)
+            print(f'SBM groups were saved to {file}.')
+
+        sbm_features = F.one_hot(sbm_groups)
+
+        return sbm_features
 
     @classmethod
     def get_graphlet_features(cls, name, graph):
