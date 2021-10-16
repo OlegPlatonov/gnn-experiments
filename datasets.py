@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 
 from features import (get_sbm_groups,
+                      compute_rolx_features,
                       compute_graphlet_degree_vectors,
                       transform_graphlet_degree_vectors_to_binary_features)
 
@@ -23,7 +24,7 @@ class Dataset:
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
-                 use_sbm_features=False, use_graphlet_features=False, device='cpu'):
+                 use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False, device='cpu'):
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -48,6 +49,10 @@ class Dataset:
         if use_sbm_features:
             sbm_features = self.get_sbm_features(name, graph)
             node_features = torch.cat([node_features, sbm_features], axis=1)
+
+        if use_rolx_features:
+            rolx_features = self.get_rolx_features(name, graph)
+            node_features = torch.cat([node_features, rolx_features], axis=1)
 
         if use_graphlet_features:
             graphlet_features = self.get_graphlet_features(name, graph)
@@ -236,6 +241,20 @@ class Dataset:
         sbm_features = F.one_hot(sbm_groups)
 
         return sbm_features
+
+    @classmethod
+    def get_rolx_features(cls, name, graph):
+        data_dir = cls.get_data_dir(name)
+        file = os.path.join(data_dir, 'rolx_features.pt')
+        if os.path.isfile(file):
+            rolx_features = torch.load(file)
+        else:
+            print('Computing RolX features...')
+            rolx_features = compute_rolx_features(graph)
+            torch.save(rolx_features, file)
+            print(f'RolX features were saved to {file}.')
+
+        return rolx_features
 
     @classmethod
     def get_graphlet_features(cls, name, graph):
