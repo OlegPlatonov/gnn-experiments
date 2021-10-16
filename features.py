@@ -1,11 +1,14 @@
 import numpy as np
 import torch
+import dgl
 import orcastr
 from tqdm import tqdm
 
 from graph_tool import Graph as GTGraph
 from graph_tool.stats import remove_self_loops, remove_parallel_edges
 from graph_tool.inference import minimize_blockmodel_dl
+
+from graphrole import RecursiveFeatureExtractor, RoleExtractor
 
 
 def dgl_to_gt(dgl_graph):
@@ -36,6 +39,20 @@ def get_sbm_groups(graph, num_fits=10):
     groups = torch.tensor(groups)
 
     return groups
+
+
+def compute_rolx_features(graph, max_roles=25):
+    graph = dgl.to_networkx(graph).to_undirected()
+
+    feature_extractor = RecursiveFeatureExtractor(graph)
+    features = feature_extractor.extract_features()
+
+    role_extractor = RoleExtractor(n_role_range=(2, max_roles))
+    role_extractor.extract_role_factors(features)
+
+    rolx_features = torch.tensor(role_extractor.role_percentage.to_numpy()).float()
+
+    return rolx_features
 
 
 def compute_graphlet_degree_vectors(graph, max_graphlet_size=5):

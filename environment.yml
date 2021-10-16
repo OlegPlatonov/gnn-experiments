@@ -17,4 +17,5 @@ dependencies:
   - pyg
   - pip:
     - ogb
+    - graphrole
     - git+https://github.com/qema/orca-py.git
