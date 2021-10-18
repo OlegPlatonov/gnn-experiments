@@ -24,7 +24,8 @@ class Dataset:
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
-                 use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False, device='cpu'):
+                 use_sgc_features=False, use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
+                 device='cpu'):
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -45,6 +46,10 @@ class Dataset:
 
         if num_targets == 1 or multilabel:
             labels = labels.float()
+
+        if use_sgc_features:
+            sgc_features = self.compute_sgc_features(graph, node_features)
+            node_features = torch.cat([node_features, sgc_features], axis=1)
 
         if use_sbm_features:
             sbm_features = self.get_sbm_features(name, graph)
@@ -225,6 +230,20 @@ class Dataset:
                 test_idx_list.append(test_idx.sort()[0])
 
         return train_idx_list, val_idx_list, test_idx_list
+
+    @staticmethod
+    def compute_sgc_features(graph, node_features, num_props=5):
+        graph = dgl.remove_self_loop(graph)
+        graph = dgl.add_self_loop(graph)
+
+        degrees = graph.out_degrees().float()
+        degree_edge_products = ops.u_mul_v(graph, degrees, degrees)
+        norm_coefs = 1 / degree_edge_products ** 0.5
+
+        for _ in range(num_props):
+            node_features = ops.u_mul_e_sum(graph, node_features, norm_coefs)
+
+        return node_features
 
     @classmethod
     def get_sbm_features(cls, name, graph):
