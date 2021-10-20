@@ -25,7 +25,7 @@ class Dataset:
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
                  use_sgc_features=False, use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
-                 device='cpu'):
+                 use_spectral_features=False, device='cpu'):
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -62,6 +62,10 @@ class Dataset:
         if use_graphlet_features:
             graphlet_features = self.get_graphlet_features(name, graph)
             node_features = torch.cat([node_features, graphlet_features], axis=1)
+
+        if use_spectral_features:
+            spectral_features = self.get_spectral_features(name)
+            node_features = torch.cat([node_features, spectral_features], axis=1)
 
         graph = graph.to(device)
         node_features = node_features.to(device)
@@ -290,6 +294,18 @@ class Dataset:
         graphlet_features = transform_graphlet_degree_vectors_to_binary_features(graphlet_degree_vectors)
 
         return graphlet_features
+
+    @classmethod
+    def get_spectral_features(cls, name):
+        data_dir = cls.get_data_dir(name)
+        file = os.path.join(data_dir, 'spectral_embeddings.pt')
+        if os.path.isfile(file):
+            spectral_embeddings = torch.load(file)
+            return spectral_embeddings
+        else:
+            raise FileNotFoundError(f'File {file} not found. Precompute spectral embeddings or ommit argument '
+                                    'use_spectral_features. You can use this repository to precompute spectral '
+                                    'embeddings: https://github.com/CUAI/CorrectAndSmooth.')
 
     @staticmethod
     def get_data_dir(name):
