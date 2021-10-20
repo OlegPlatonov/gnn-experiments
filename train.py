@@ -38,6 +38,7 @@ def get_args():
     parser.add_argument('--use_sbm_features', default=False, action='store_true')
     parser.add_argument('--use_rolx_features', default=False, action='store_true')
     parser.add_argument('--use_graphlet_features', default=False, action='store_true')
+    parser.add_argument('--use_spectral_features', default=False, action='store_true')
     parser.add_argument('--num_runs', type=int, default=10)
     parser.add_argument('--num_data_splits', type=int, default=10,
                         help='Only used for datasets that do not have standard data splits.')
@@ -94,6 +95,7 @@ def main():
                       use_sbm_features=args.use_sbm_features,
                       use_rolx_features=args.use_rolx_features,
                       use_graphlet_features=args.use_graphlet_features,
+                      use_spectral_features=args.use_spectral_features,
                       device=args.device)
 
     logger = Logger(args, metric=dataset.metric, num_data_splits=dataset.num_data_splits)
