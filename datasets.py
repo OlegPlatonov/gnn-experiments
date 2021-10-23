@@ -22,10 +22,12 @@ class Dataset:
     ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins']
     pyg_dataset_names = ['squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp',
-                         'airports-usa', 'airports-europe', 'airports-brazil']
+                         'airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro']
     dgl_dataset_names = ['fraud-yelp-chi', 'fraud-amazon']
 
-    no_features_names = ['airports-usa', 'airports-europe', 'airports-brazil']
+    multilabel_names = ['ogbn-proteins', 'yelp', 'deezer-hr', 'deezer-hu', 'deezer-ro']
+
+    no_features_names = ['airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
                  use_sgc_features=False, use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
@@ -49,7 +51,7 @@ class Dataset:
         if add_self_loops:
             graph = dgl.add_self_loop(graph)
 
-        multilabel = (name in ['ogbn-proteins', 'yelp'])
+        multilabel = (name in self.multilabel_names)
 
         if multilabel:
             num_targets = labels.shape[1]
@@ -185,6 +187,10 @@ class Dataset:
             node_features -= node_features.mean(axis=0)
             node_features /= node_features.std(axis=0)
 
+        if name in ['deezer-hr', 'deezer-hu', 'deezer-ro']:
+            label_counts = labels.sum(axis=0)
+            labels = labels[:, (label_counts >= 1000)]
+
         train_idx_list, val_idx_list, test_idx_list = cls.get_pyg_data_split_idx_lists(name, pyg_graph, num_data_splits)
 
         return dgl_graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list
@@ -259,6 +265,9 @@ class Dataset:
         elif name in ['airports-usa', 'airports-europe', 'airports-brazil']:
             location = name.split('-')[1]
             dataset = pyg_datasets.Airports(root=os.path.join('data', 'airports'), name=location)
+        elif name in ['deezer-hr', 'deezer-hu', 'deezer-ro']:
+            country = name.split('-')[1].upper()
+            dataset = pyg_datasets.GemsecDeezer(root=os.path.join('data', 'gemsec-deezer'), name=country)
         else:
             raise ValueError(f'Dataset {name} is not supported.')
 
@@ -283,8 +292,8 @@ class Dataset:
 
         return train_idx_list, val_idx_list, test_idx_list
 
-    @staticmethod
-    def get_random_data_split_idx_lists(name, num_data_splits, labels, labeled_idx=None):
+    @classmethod
+    def get_random_data_split_idx_lists(cls, name, num_data_splits, labels, labeled_idx=None):
         if num_data_splits is None:
             raise ValueError(f'Dataset {name} does not have standard data splits. '
                              'num_data_splits should be provided.')
@@ -295,11 +304,13 @@ class Dataset:
             labeled_idx = torch.arange(len(labels))
 
         for i in range(num_data_splits):
+            stratify = labels[labeled_idx] if name not in cls.multilabel_names else None
             train_idx, val_and_test_idx = train_test_split(labeled_idx, test_size=0.5, random_state=i,
-                                                           stratify=labels[labeled_idx])
+                                                           stratify=stratify)
 
+            stratify = labels[val_and_test_idx] if name not in cls.multilabel_names else None
             val_idx, test_idx = train_test_split(val_and_test_idx, test_size=0.5, random_state=i,
-                                                 stratify=labels[val_and_test_idx])
+                                                 stratify=stratify)
 
             train_idx_list.append(train_idx.sort()[0])
             val_idx_list.append(val_idx.sort()[0])
@@ -396,6 +407,9 @@ class Dataset:
         elif name in ['airports-usa', 'airports-europe', 'airports-brazil']:
             location = name.split('-')[1]
             return os.path.join('data', 'airports', location)
+        elif name in ['deezer-hr', 'deezer-hu', 'deezer-ro']:
+            country = name.split('-')[1].upper()
+            return os.path.join('data', 'gemsec-deezer', country)
         else:
             return os.path.join('data', name)
 
