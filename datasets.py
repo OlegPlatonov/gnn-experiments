@@ -21,12 +21,24 @@ from features import (get_sbm_groups,
 class Dataset:
     ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins']
     pyg_dataset_names = ['squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
-                         'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp']
+                         'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp',
+                         'airports-usa', 'airports-europe', 'airports-brazil']
     dgl_dataset_names = ['fraud-yelp-chi', 'fraud-amazon']
+
+    no_features_names = ['airports-usa', 'airports-europe', 'airports-brazil']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
                  use_sgc_features=False, use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
                  use_spectral_features=False, device='cpu'):
+
+        if name in self.no_features_names:
+            if use_sgc_features:
+                raise ValueError('SGC features cannot be used for datasets without node features. '
+                                 'The argument use_sgc_features should be omitted.')
+
+            if not any([use_sbm_features, use_rolx_features, use_graphlet_features, use_spectral_features]):
+                raise ValueError('For datasets without node features at least one of the arguments use_sbm_features, '
+                                 'use_rolx_features, use_graphlet_features, use_spectral_features should be used.')
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -160,8 +172,9 @@ class Dataset:
         pyg_graph = dataset[0]
 
         source_nodes, target_nodes = pyg_graph.edge_index
-        dgl_graph = dgl.graph((source_nodes, target_nodes), num_nodes=len(pyg_graph.x), idtype=torch.int)
-        node_features = pyg_graph.x
+        n = len(pyg_graph.y)
+        dgl_graph = dgl.graph((source_nodes, target_nodes), num_nodes=n, idtype=torch.int)
+        node_features = pyg_graph.x if name not in cls.no_features_names else torch.tensor([[] for _ in range(n)])
         labels = pyg_graph.y
 
         if name == 'flickr':
@@ -243,6 +256,9 @@ class Dataset:
             dataset = pyg_datasets.Flickr(root=default_root)
         elif name == 'yelp':
             dataset = pyg_datasets.Yelp(root=default_root)
+        elif name in ['airports-usa', 'airports-europe', 'airports-brazil']:
+            location = name.split('-')[1]
+            dataset = pyg_datasets.Airports(root=os.path.join('data', 'airports'), name=location)
         else:
             raise ValueError(f'Dataset {name} is not supported.')
 
@@ -377,6 +393,9 @@ class Dataset:
         elif name in ['twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru']:
             country = name.split('-')[1].upper()
             return os.path.join('data', 'twitch', country)
+        elif name in ['airports-usa', 'airports-europe', 'airports-brazil']:
+            location = name.split('-')[1]
+            return os.path.join('data', 'airports', location)
         else:
             return os.path.join('data', name)
 
