@@ -18,7 +18,7 @@ def get_args():
                         choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins',
                                  'squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                                  'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru',
-                                 'flickr', 'yelp'])
+                                 'flickr', 'yelp', 'fraud-yelp-chi', 'fraud-amazon'])
     parser.add_argument('--model', type=str, default='GT', choices=['ResNet', 'GCN', 'SAGE', 'GAT', 'GT'])
     parser.add_argument('--num_layers', type=int, default=5)
     parser.add_argument('--hidden_dim', type=int, default=512)

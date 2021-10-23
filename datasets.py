@@ -22,6 +22,7 @@ class Dataset:
     ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins']
     pyg_dataset_names = ['squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp']
+    dgl_dataset_names = ['fraud-yelp-chi', 'fraud-amazon']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
                  use_sgc_features=False, use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
@@ -124,6 +125,8 @@ class Dataset:
             return cls.get_ogb_data(name)
         elif name in cls.pyg_dataset_names:
             return cls.get_pyg_data(name, num_data_splits)
+        elif name in cls.dgl_dataset_names:
+            return cls.get_dgl_data(name, num_data_splits)
         else:
             raise ValueError(f'Dataset {name} is not supported.')
 
@@ -173,6 +176,51 @@ class Dataset:
 
         return dgl_graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list
 
+    @classmethod
+    def get_dgl_data(cls, name, num_data_splits):
+        if name == 'fraud-yelp-chi':
+            dataset = dgl.data.FraudYelpDataset(raw_dir='data/fraud-yelp-chi')
+        elif name == 'fraud-amazon':
+            dataset = dgl.data.FraudAmazonDataset(raw_dir='data/fraud-amazon')
+        else:
+            raise ValueError(f'Dataset {name} is not supported.')
+
+        print(f'{name} is a heterogeneous graph with several different edge types, but they all will be treated '
+              'in the same way.')
+
+        graph = dataset[0]
+        graph = graph.int()
+
+        if name == 'fraud-amazon':
+            labeled_mask = (graph.ndata['train_mask'] | graph.ndata['val_mask'] | graph.ndata['test_mask'])
+            labeled_idx = torch.where(labeled_mask)[0]
+        else:
+            labeled_idx = None
+
+        graph = dgl.to_homogeneous(graph, ndata=['feature', 'label'], store_type=False)
+
+        node_features = graph.ndata['feature'].float()
+        labels = graph.ndata['label'].reshape(-1)
+
+        if name == 'fraud-amazon':
+            num_unique_feature_values = [len(node_features[:, i].unique()) for i in range(node_features.shape[1])]
+            one_hot_idx = [i for i, num in enumerate(num_unique_feature_values) if num <= 5]
+            one_hot_encoder = OneHotEncoder(drop='if_binary', sparse=False, dtype='float32')
+            one_hot_encoded_features = one_hot_encoder.fit_transform(node_features[:, one_hot_idx])
+            one_hot_encoded_features = torch.tensor(one_hot_encoded_features)
+
+            other_idx = [i for i in range(node_features.shape[1]) if i not in one_hot_idx]
+            other_features = node_features[:, other_idx]
+            other_features -= other_features.mean(axis=0)
+            other_features /= other_features.std(axis=0)
+
+            node_features = torch.cat([one_hot_encoded_features, other_features], axis=1)
+
+        train_idx_list, val_idx_list, test_idx_list = cls.get_random_data_split_idx_lists(name, num_data_splits, labels,
+                                                                                          labeled_idx=labeled_idx)
+
+        return graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list
+
     @staticmethod
     def get_pyg_dataset(name):
         default_root = os.path.join('data', name)
@@ -200,8 +248,8 @@ class Dataset:
 
         return dataset
 
-    @staticmethod
-    def get_pyg_data_split_idx_lists(name, pyg_graph, num_data_splits=None):
+    @classmethod
+    def get_pyg_data_split_idx_lists(cls, name, pyg_graph, num_data_splits=None):
         if name in ['flickr', 'yelp']:
             train_idx_list = [torch.where(pyg_graph.train_mask)[0]]
             val_idx_list = [torch.where(pyg_graph.val_mask)[0]]
@@ -214,24 +262,32 @@ class Dataset:
             test_idx_list = [torch.where(pyg_graph.test_mask[:, i])[0] for i in range(num_splits)]
 
         else:
-            if num_data_splits is None:
-                raise ValueError(f'Dataset {name} does not have standard data splits. '
-                                 'num_data_splits should be provided.')
+            train_idx_list, val_idx_list, test_idx_list = cls.get_random_data_split_idx_lists(name, num_data_splits,
+                                                                                              pyg_graph.y)
 
-            train_idx_list, val_idx_list, test_idx_list = [], [], []
+        return train_idx_list, val_idx_list, test_idx_list
 
-            full_idx = torch.arange(len(pyg_graph.y))
+    @staticmethod
+    def get_random_data_split_idx_lists(name, num_data_splits, labels, labeled_idx=None):
+        if num_data_splits is None:
+            raise ValueError(f'Dataset {name} does not have standard data splits. '
+                             'num_data_splits should be provided.')
 
-            for i in range(num_data_splits):
-                train_idx, val_and_test_idx = train_test_split(full_idx, test_size=0.5, random_state=i,
-                                                               stratify=pyg_graph.y)
+        train_idx_list, val_idx_list, test_idx_list = [], [], []
 
-                val_idx, test_idx = train_test_split(val_and_test_idx, test_size=0.5, random_state=i,
-                                                     stratify=pyg_graph.y[val_and_test_idx])
+        if labeled_idx is None:
+            labeled_idx = torch.arange(len(labels))
 
-                train_idx_list.append(train_idx.sort()[0])
-                val_idx_list.append(val_idx.sort()[0])
-                test_idx_list.append(test_idx.sort()[0])
+        for i in range(num_data_splits):
+            train_idx, val_and_test_idx = train_test_split(labeled_idx, test_size=0.5, random_state=i,
+                                                           stratify=labels[labeled_idx])
+
+            val_idx, test_idx = train_test_split(val_and_test_idx, test_size=0.5, random_state=i,
+                                                 stratify=labels[val_and_test_idx])
+
+            train_idx_list.append(train_idx.sort()[0])
+            val_idx_list.append(val_idx.sort()[0])
+            test_idx_list.append(test_idx.sort()[0])
 
         return train_idx_list, val_idx_list, test_idx_list
 
@@ -312,6 +368,10 @@ class Dataset:
         if name in Dataset.ogb_dataset_names:
             name = name.replace('-', '_')
             return os.path.join('data', name)
+        elif name == 'fraud-yelp-chi':
+            return os.path.join('data', name, 'yelp')
+        elif name == 'fraud-amazon':
+            return os.path.join('data', name, 'amazon')
         elif name in ['squirrel', 'chameleon']:
             return os.path.join('data', name, 'geom_gcn')
         elif name in ['twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru']:
