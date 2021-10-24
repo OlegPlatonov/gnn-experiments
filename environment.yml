@@ -9,6 +9,7 @@ dependencies:
   - tqdm
   - pyyaml
   - numpy
+  - scipy
   - scikit-learn
   - graph-tool
   - cudatoolkit=11.3

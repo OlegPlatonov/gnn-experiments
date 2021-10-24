@@ -1,4 +1,5 @@
 import os
+import urllib
 
 import torch
 from torch.nn import functional as F
@@ -8,6 +9,7 @@ from dgl import ops
 from ogb.nodeproppred import DglNodePropPredDataset, Evaluator
 from torch_geometric import datasets as pyg_datasets
 
+from scipy.io import loadmat
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
@@ -24,10 +26,13 @@ class Dataset:
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp',
                          'airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro']
     dgl_dataset_names = ['fraud-yelp-chi', 'fraud-amazon']
+    other_dataset_names = ['blogcatalog', 'ppi', 'wikipedia']
 
-    multilabel_names = ['ogbn-proteins', 'yelp', 'deezer-hr', 'deezer-hu', 'deezer-ro']
+    multilabel_names = ['ogbn-proteins', 'yelp', 'deezer-hr', 'deezer-hu', 'deezer-ro', 'blogcatalog', 'ppi',
+                        'wikipedia']
 
-    no_features_names = ['airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro']
+    no_features_names = ['airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro',
+                         'blogcatalog', 'ppi', 'wikipedia']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
                  use_sgc_features=False, use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
@@ -141,6 +146,8 @@ class Dataset:
             return cls.get_pyg_data(name, num_data_splits)
         elif name in cls.dgl_dataset_names:
             return cls.get_dgl_data(name, num_data_splits)
+        elif name in cls.other_dataset_names:
+            return cls.get_other_data(name, num_data_splits)
         else:
             raise ValueError(f'Dataset {name} is not supported.')
 
@@ -237,6 +244,41 @@ class Dataset:
 
         train_idx_list, val_idx_list, test_idx_list = cls.get_random_data_split_idx_lists(name, num_data_splits, labels,
                                                                                           labeled_idx=labeled_idx)
+
+        return graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list
+
+    @classmethod
+    def get_other_data(cls, name, num_data_splits):
+        if name == 'blogcatalog':
+            filename = os.path.join('data', name, 'blogcatalog.mat')
+            url = 'http://leitang.net/code/social-dimension/data/blogcatalog.mat'
+        elif name == 'ppi':
+            filename = os.path.join('data', name, 'Homo_sapiens.mat')
+            url = 'http://snap.stanford.edu/node2vec/Homo_sapiens.mat'
+        elif name == 'wikipedia':
+            filename = os.path.join('data', name, 'POS.mat')
+            url = 'http://snap.stanford.edu/node2vec/POS.mat'
+        else:
+            raise ValueError(f'Dataset {name} is not supported.')
+
+        if not os.path.isfile(filename):
+            dirname = os.path.dirname(filename)
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
+
+            urllib.request.urlretrieve(url, filename)
+
+        data = loadmat(filename)
+        source_nodes, target_nodes = data['network'].nonzero()
+        labels = torch.tensor(data['group'].toarray())
+        n = len(labels)
+        graph = dgl.graph((source_nodes, target_nodes), num_nodes=n, idtype=torch.int)
+        node_features = torch.tensor([[] for _ in range(n)])
+
+        label_counts = labels.sum(axis=0)
+        labels = labels[:, (label_counts >= 100)]
+
+        train_idx_list, val_idx_list, test_idx_list = cls.get_random_data_split_idx_lists(name, num_data_splits, labels)
 
         return graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list
 
