@@ -21,7 +21,7 @@ from features import (get_sbm_groups,
 
 
 class Dataset:
-    ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins']
+    ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins', 'ogbn-mag']
     pyg_dataset_names = ['squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp',
                          'airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro']
@@ -156,6 +156,17 @@ class Dataset:
         dataset = DglNodePropPredDataset(name, root='data')
         graph, labels = dataset[0]
         graph = graph.int()
+        split_idx = dataset.get_idx_split()
+
+        if name == 'ogbn-mag':
+            print('ogbn-mag is a heterogeneous graph, but only the subgraph with paper nodes and citation relations '
+                  'will be used.')
+
+            node_features = graph.ndata['feat']['paper']
+            graph = dgl.graph(graph.edges(etype='cites'), num_nodes=graph.num_nodes('paper'), idtype=torch.int)
+            graph.ndata['feat'] = node_features
+            labels = labels['paper']
+            split_idx = {key: value['paper'] for key, value in split_idx.items()}
 
         if name == 'ogbn-proteins':
             print("ogbn-proteins graph does not have node features, but it has edge features. "
@@ -168,7 +179,6 @@ class Dataset:
 
         node_features = graph.ndata['feat']
 
-        split_idx = dataset.get_idx_split()
         train_idx_list = [split_idx['train']]
         val_idx_list = [split_idx['valid']]
         test_idx_list = [split_idx['test']]

@@ -15,7 +15,7 @@ def get_args():
     parser.add_argument('--name', type=str, default=None, help='Experiment name. If None, model name is used.')
     parser.add_argument('--save_dir', type=str, default='experiments', help='Base directory for saving information.')
     parser.add_argument('--dataset', type=str, default='ogbn-arxiv',
-                        choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins',
+                        choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins', 'ogbn-mag',
                                  'squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                                  'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru',
                                  'flickr', 'yelp', 'fraud-yelp-chi', 'fraud-amazon', 'airports-usa', 'airports-europe',
