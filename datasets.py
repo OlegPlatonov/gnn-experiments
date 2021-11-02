@@ -35,17 +35,19 @@ class Dataset:
                          'blogcatalog', 'ppi', 'wikipedia']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
-                 use_sgc_features=False, use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
-                 use_spectral_features=False, device='cpu'):
+                 use_sgc_features=False, use_adjacency_features=False, use_sbm_features=False, use_rolx_features=False,
+                 use_graphlet_features=False, use_spectral_features=False, device='cpu'):
 
         if name in self.no_features_names:
             if use_sgc_features:
                 raise ValueError('SGC features cannot be used for datasets without node features. '
                                  'The argument use_sgc_features should be omitted.')
 
-            if not any([use_sbm_features, use_rolx_features, use_graphlet_features, use_spectral_features]):
-                raise ValueError('For datasets without node features at least one of the arguments use_sbm_features, '
-                                 'use_rolx_features, use_graphlet_features, use_spectral_features should be used.')
+            if not any([use_adjacency_features, use_sbm_features, use_rolx_features, use_graphlet_features,
+                        use_spectral_features]):
+                raise ValueError('For datasets without node features at least one of the arguments '
+                                 'use_adjacency_features, use_sbm_features, use_rolx_features, use_graphlet_features, '
+                                 'use_spectral_features should be used.')
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -70,6 +72,11 @@ class Dataset:
         if use_sgc_features:
             sgc_features = self.compute_sgc_features(graph, node_features)
             node_features = torch.cat([node_features, sgc_features], axis=1)
+
+        if use_adjacency_features:
+            graph_without_self_loops = dgl.remove_self_loop(graph)
+            adj_matrix = graph_without_self_loops.adjacency_matrix()
+            node_features = torch.cat([node_features, adj_matrix.to_dense()], axis=1)
 
         if use_sbm_features:
             sbm_features = self.get_sbm_features(name, graph)
