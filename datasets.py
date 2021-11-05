@@ -24,7 +24,8 @@ class Dataset:
     ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins', 'ogbn-mag']
     pyg_dataset_names = ['squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp',
-                         'airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro']
+                         'cora', 'citeseer', 'pubmed', 'airports-usa', 'airports-europe', 'airports-brazil',
+                         'deezer-hr', 'deezer-hu', 'deezer-ro']
     dgl_dataset_names = ['fraud-yelp-chi', 'fraud-amazon']
     other_dataset_names = ['blogcatalog', 'ppi', 'wikipedia']
 
@@ -321,6 +322,8 @@ class Dataset:
             dataset = pyg_datasets.Flickr(root=default_root)
         elif name == 'yelp':
             dataset = pyg_datasets.Yelp(root=default_root)
+        elif name in ['cora', 'citeseer', 'pubmed']:
+            dataset = pyg_datasets.Planetoid(root=default_root, name=name)
         elif name in ['airports-usa', 'airports-europe', 'airports-brazil']:
             location = name.split('-')[1]
             dataset = pyg_datasets.Airports(root=os.path.join('data', 'airports'), name=location)
