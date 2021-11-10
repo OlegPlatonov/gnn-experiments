@@ -37,7 +37,8 @@ class Dataset:
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
                  use_sgc_features=False, use_adjacency_features=False, use_sbm_features=False, use_rolx_features=False,
-                 use_graphlet_features=False, use_spectral_features=False, device='cpu'):
+                 use_graphlet_features=False, use_spectral_features=False, use_deepwalk_features=False,
+                 use_struc2vec_features=False, device='cpu'):
 
         if name in self.no_features_names:
             if use_sgc_features:
@@ -45,10 +46,10 @@ class Dataset:
                                  'The argument use_sgc_features should be omitted.')
 
             if not any([use_adjacency_features, use_sbm_features, use_rolx_features, use_graphlet_features,
-                        use_spectral_features]):
+                        use_spectral_features, use_deepwalk_features, use_struc2vec_features]):
                 raise ValueError('For datasets without node features at least one of the arguments '
                                  'use_adjacency_features, use_sbm_features, use_rolx_features, use_graphlet_features, '
-                                 'use_spectral_features should be used.')
+                                 'use_spectral_features, use_deepwalk_features, use_struc2vec_features should be used.')
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -94,6 +95,14 @@ class Dataset:
         if use_spectral_features:
             spectral_features = self.get_spectral_features(name)
             node_features = torch.cat([node_features, spectral_features], axis=1)
+
+        if use_deepwalk_features:
+            deepwalk_features = self.get_deepwalk_features(name)
+            node_features = torch.cat([node_features, deepwalk_features], axis=1)
+
+        if use_struc2vec_features:
+            struc2vec_features = self.get_struc2vec_features(name)
+            node_features = torch.cat([node_features, struc2vec_features], axis=1)
 
         graph = graph.to(device)
         node_features = node_features.to(device)
@@ -451,6 +460,30 @@ class Dataset:
             raise FileNotFoundError(f'File {file} not found. Precompute spectral embeddings or ommit argument '
                                     'use_spectral_features. You can use this repository to precompute spectral '
                                     'embeddings: https://github.com/CUAI/CorrectAndSmooth.')
+
+    @classmethod
+    def get_deepwalk_features(cls, name):
+        data_dir = cls.get_data_dir(name)
+        file = os.path.join(data_dir, 'deepwalk_embeddings.pt')
+        if os.path.isfile(file):
+            deepwalk_embeddings = torch.load(file)
+            return deepwalk_embeddings
+        else:
+            raise FileNotFoundError(f'File {file} not found. Precompute DeepWalk embeddings or ommit argument '
+                                    'use_depwalk_features. You can use this repository to precompute DeepWalk '
+                                    'embeddings: https://github.com/phanein/deepwalk.')
+
+    @classmethod
+    def get_struc2vec_features(cls, name):
+        data_dir = cls.get_data_dir(name)
+        file = os.path.join(data_dir, 'struc2vec_embeddings.pt')
+        if os.path.isfile(file):
+            struc2vec_embeddings = torch.load(file)
+            return struc2vec_embeddings
+        else:
+            raise FileNotFoundError(f'File {file} not found. Precompute struc2vec embeddings or ommit argument '
+                                    'use_struc2vec_features. You can use this repository to precompute struc2vec '
+                                    'embeddings: https://github.com/leoribeiro/struc2vec.')
 
     @staticmethod
     def get_data_dir(name):
