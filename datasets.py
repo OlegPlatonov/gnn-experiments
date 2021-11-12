@@ -36,20 +36,22 @@ class Dataset:
                          'blogcatalog', 'ppi', 'wikipedia']
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
-                 use_sgc_features=False, use_adjacency_features=False, use_adjacency_squared_features=False,
-                 use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
-                 use_spectral_features=False, use_deepwalk_features=False, use_struc2vec_features=False, device='cpu'):
+                 use_sgc_features=False, use_degree_features=False, use_adjacency_features=False,
+                 use_adjacency_squared_features=False, use_sbm_features=False, use_rolx_features=False,
+                 use_graphlet_features=False, use_spectral_features=False, use_deepwalk_features=False,
+                 use_struc2vec_features=False, device='cpu'):
 
         if name in self.no_features_names:
             if use_sgc_features:
                 raise ValueError('SGC features cannot be used for datasets without node features. '
                                  'The argument use_sgc_features should be omitted.')
 
-            if not any([use_adjacency_features, use_adjacency_squared_features, use_sbm_features, use_rolx_features,
-                        use_graphlet_features, use_spectral_features, use_deepwalk_features, use_struc2vec_features]):
+            if not any([use_degree_features, use_adjacency_features, use_adjacency_squared_features, use_sbm_features,
+                        use_rolx_features, use_graphlet_features, use_spectral_features, use_deepwalk_features,
+                        use_struc2vec_features]):
                 raise ValueError('For datasets without node features at least one of the arguments '
-                                 'use_adjacency_features, use_adjacency_squared_features, use_sbm_features, '
-                                 'use_rolx_features, use_graphlet_features, use_spectral_features, '
+                                 'use_degree_features, use_adjacency_features, use_adjacency_squared_features,'
+                                 'use_sbm_features, use_rolx_features, use_graphlet_features, use_spectral_features, '
                                  'use_deepwalk_features, use_struc2vec_features should be used.')
 
         print('Preparing data...')
@@ -75,6 +77,10 @@ class Dataset:
         if use_sgc_features:
             sgc_features = self.compute_sgc_features(graph, node_features)
             node_features = torch.cat([node_features, sgc_features], axis=1)
+
+        if use_degree_features:
+            degree_features = self.get_degree_features(graph)
+            node_features = torch.cat([node_features, degree_features], axis=1)
 
         if use_adjacency_features:
             graph_without_self_loops = dgl.remove_self_loop(graph)
@@ -409,6 +415,14 @@ class Dataset:
             node_features = ops.u_mul_e_sum(graph, node_features, norm_coefs)
 
         return node_features
+
+    @staticmethod
+    def get_degree_features(graph, max_degree=50):
+        degrees = graph.out_degrees().long()
+        degrees = torch.minimum(degrees, torch.tensor(max_degree))
+        degrees_one_hot = F.one_hot(degrees)
+
+        return degrees_one_hot
 
     @classmethod
     def get_sbm_features(cls, name, graph):
