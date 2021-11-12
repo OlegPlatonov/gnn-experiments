@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from graph_tool import Graph as GTGraph
 from graph_tool.stats import remove_self_loops, remove_parallel_edges
+from graph_tool.centrality import closeness, betweenness, pagerank
 from graph_tool.inference import minimize_blockmodel_dl
 
 from graphrole import RecursiveFeatureExtractor, RoleExtractor
@@ -20,6 +21,23 @@ def dgl_to_gt(dgl_graph):
     remove_parallel_edges(gt_graph)
 
     return gt_graph
+
+
+def compute_centrality_measures(graph):
+    graph = dgl_to_gt(graph)
+
+    print('Computing harmonic closeness...')
+    closeness_values = closeness(graph, harmonic=True)
+
+    print('Computing betweenness...')
+    betweenness_values, _ = betweenness(graph)
+
+    print('Computing PageRank...')
+    pagerank_values = pagerank(graph)
+
+    centrality_measures = torch.tensor([list(closeness_values), list(betweenness_values), list(pagerank_values)]).T
+
+    return centrality_measures
 
 
 def get_sbm_groups(graph, num_fits=10):

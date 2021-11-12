@@ -14,10 +14,8 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score
 
-from features import (get_sbm_groups,
-                      compute_rolx_features,
-                      compute_graphlet_degree_vectors,
-                      transform_graphlet_degree_vectors_to_binary_features)
+from features import (compute_centrality_measures, get_sbm_groups, compute_rolx_features,
+                      compute_graphlet_degree_vectors, transform_graphlet_degree_vectors_to_binary_features)
 
 
 class Dataset:
@@ -37,22 +35,22 @@ class Dataset:
 
     def __init__(self, name, add_self_loops=False, num_data_splits=None, input_labels_proportion=0,
                  use_sgc_features=False, use_degree_features=False, use_adjacency_features=False,
-                 use_adjacency_squared_features=False, use_sbm_features=False, use_rolx_features=False,
-                 use_graphlet_features=False, use_spectral_features=False, use_deepwalk_features=False,
-                 use_struc2vec_features=False, device='cpu'):
+                 use_adjacency_squared_features=False, use_centrality_features=False, use_sbm_features=False,
+                 use_rolx_features=False, use_graphlet_features=False, use_spectral_features=False,
+                 use_deepwalk_features=False, use_struc2vec_features=False, device='cpu'):
 
         if name in self.no_features_names:
             if use_sgc_features:
                 raise ValueError('SGC features cannot be used for datasets without node features. '
                                  'The argument use_sgc_features should be omitted.')
 
-            if not any([use_degree_features, use_adjacency_features, use_adjacency_squared_features, use_sbm_features,
-                        use_rolx_features, use_graphlet_features, use_spectral_features, use_deepwalk_features,
-                        use_struc2vec_features]):
+            if not any([use_degree_features, use_adjacency_features, use_adjacency_squared_features,
+                        use_centrality_features, use_sbm_features, use_rolx_features, use_graphlet_features,
+                        use_spectral_features, use_deepwalk_features, use_struc2vec_features]):
                 raise ValueError('For datasets without node features at least one of the arguments '
-                                 'use_degree_features, use_adjacency_features, use_adjacency_squared_features,'
-                                 'use_sbm_features, use_rolx_features, use_graphlet_features, use_spectral_features, '
-                                 'use_deepwalk_features, use_struc2vec_features should be used.')
+                                 'use_degree_features, use_adjacency_features, use_adjacency_squared_features, '
+                                 'use_centrality_features, use_sbm_features, use_rolx_features, use_graphlet_features, '
+                                 'use_spectral_features, use_deepwalk_features, use_struc2vec_features should be used.')
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -92,6 +90,10 @@ class Dataset:
             adj_matrix = graph_without_self_loops.adjacency_matrix()
             adj_matrix_squared = torch.sparse.mm(adj_matrix, adj_matrix)
             node_features = torch.cat([node_features, adj_matrix_squared.to_dense()], axis=1)
+
+        if use_centrality_features:
+            centrality_features = self.get_centrality_features(name, graph)
+            node_features = torch.cat([node_features, centrality_features], axis=1)
 
         if use_sbm_features:
             sbm_features = self.get_sbm_features(name, graph)
@@ -423,6 +425,23 @@ class Dataset:
         degrees_one_hot = F.one_hot(degrees)
 
         return degrees_one_hot
+
+    @classmethod
+    def get_centrality_features(cls, name, graph):
+        data_dir = cls.get_data_dir(name)
+        file = os.path.join(data_dir, 'centrality_measures.pt')
+        if os.path.isfile(file):
+            centrality_measures = torch.load(file)
+        else:
+            print('Computing centrality measures...')
+            centrality_measures = compute_centrality_measures(graph)
+            torch.save(centrality_measures, file)
+            print(f'Centrality measures were saved to {file}.')
+
+        centrality_measures -= centrality_measures.min(axis=0)[0]
+        centrality_measures /= centrality_measures.max(axis=0)[0]
+
+        return centrality_measures
 
     @classmethod
     def get_sbm_features(cls, name, graph):

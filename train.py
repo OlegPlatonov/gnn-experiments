@@ -40,6 +40,7 @@ def get_args():
     parser.add_argument('--use_degree_features', default=False, action='store_true')
     parser.add_argument('--use_adjacency_features', default=False, action='store_true')
     parser.add_argument('--use_adjacency_squared_features', default=False, action='store_true')
+    parser.add_argument('--use_centrality_features', default=False, action='store_true')
     parser.add_argument('--use_sbm_features', default=False, action='store_true')
     parser.add_argument('--use_rolx_features', default=False, action='store_true')
     parser.add_argument('--use_graphlet_features', default=False, action='store_true')
@@ -102,6 +103,7 @@ def main():
                       use_degree_features=args.use_degree_features,
                       use_adjacency_features=args.use_adjacency_features,
                       use_adjacency_squared_features=args.use_adjacency_squared_features,
+                      use_centrality_features=args.use_centrality_features,
                       use_sbm_features=args.use_sbm_features,
                       use_rolx_features=args.use_rolx_features,
                       use_graphlet_features=args.use_graphlet_features,
