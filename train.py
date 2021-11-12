@@ -37,6 +37,7 @@ def get_args():
     parser.add_argument('--input_labels_proportion', type=float, default=0)
     parser.add_argument('--label_embedding_dim', type=int, default=128)
     parser.add_argument('--use_sgc_features', default=False, action='store_true')
+    parser.add_argument('--use_identity_features', default=False, action='store_true')
     parser.add_argument('--use_degree_features', default=False, action='store_true')
     parser.add_argument('--use_adjacency_features', default=False, action='store_true')
     parser.add_argument('--use_adjacency_squared_features', default=False, action='store_true')
@@ -100,6 +101,7 @@ def main():
                       num_data_splits=args.num_data_splits,
                       input_labels_proportion=args.input_labels_proportion,
                       use_sgc_features=args.use_sgc_features,
+                      use_identity_features=args.use_identity_features,
                       use_degree_features=args.use_degree_features,
                       use_adjacency_features=args.use_adjacency_features,
                       use_adjacency_squared_features=args.use_adjacency_squared_features,
