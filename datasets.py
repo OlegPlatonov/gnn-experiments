@@ -73,13 +73,18 @@ class Dataset:
         if num_targets == 1 or multilabel:
             labels = labels.float()
 
+        n = graph.num_nodes()
+        sparse_node_features = torch.sparse_coo_tensor(size=(n, 0))
+
         if use_sgc_features:
             sgc_features = self.compute_sgc_features(graph, node_features)
             node_features = torch.cat([node_features, sgc_features], axis=1)
 
         if use_identity_features:
-            identity_matrix = torch.eye(graph.num_nodes())
-            node_features = torch.cat([node_features, identity_matrix], axis=1)
+            indices = torch.vstack([torch.arange(n), torch.arange(n)])
+            values = torch.ones(n)
+            identity_matrix = torch.sparse_coo_tensor(indices=indices, values=values, size=(n, n))
+            sparse_node_features = torch.cat([sparse_node_features, identity_matrix], axis=1)
 
         if use_degree_features:
             degree_features = self.get_degree_features(graph)
@@ -88,13 +93,13 @@ class Dataset:
         if use_adjacency_features:
             graph_without_self_loops = dgl.remove_self_loop(graph)
             adj_matrix = graph_without_self_loops.adjacency_matrix()
-            node_features = torch.cat([node_features, adj_matrix.to_dense()], axis=1)
+            sparse_node_features = torch.cat([sparse_node_features, adj_matrix], axis=1)
 
         if use_adjacency_squared_features:
             graph_without_self_loops = dgl.remove_self_loop(graph)
             adj_matrix = graph_without_self_loops.adjacency_matrix()
             adj_matrix_squared = torch.sparse.mm(adj_matrix, adj_matrix)
-            node_features = torch.cat([node_features, adj_matrix_squared.to_dense()], axis=1)
+            sparse_node_features = torch.cat([sparse_node_features, adj_matrix_squared], axis=1)
 
         if use_centrality_features:
             centrality_features = self.get_centrality_features(name, graph)
@@ -126,6 +131,7 @@ class Dataset:
 
         graph = graph.to(device)
         node_features = node_features.to(device)
+        sparse_node_features = sparse_node_features.to(device)
         labels = labels.to(device)
 
         train_idx_list = [train_idx.to(device) for train_idx in train_idx_list]
@@ -137,7 +143,8 @@ class Dataset:
         self.device = device
 
         self.graph = graph
-        self.node_features = node_features
+        self.node_features = node_features if node_features.shape[1] > 0 else None
+        self.sparse_node_features = sparse_node_features if sparse_node_features.shape[1] > 0 else None
         self.labels = labels
 
         self.train_idx_list = train_idx_list
@@ -147,6 +154,7 @@ class Dataset:
         self.cur_data_split = 0
 
         self.num_node_features = node_features.shape[1]
+        self.num_sparse_node_features = sparse_node_features.shape[1]
         self.num_targets = num_targets
 
         self.loss_fn = F.binary_cross_entropy_with_logits if num_targets == 1 or multilabel else F.cross_entropy
