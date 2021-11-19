@@ -69,7 +69,8 @@ def train_step(model, dataset, optimizer, scheduler, scaler, amp=False):
     cur_train_idx, cur_label_emb_idx = dataset.get_train_idx_and_label_idx_for_train_step()
 
     with autocast(enabled=amp):
-        logits = model(graph=dataset.graph, x=dataset.node_features, label_emb_idx=cur_label_emb_idx)
+        logits = model(graph=dataset.graph, x=dataset.node_features, x_sparse=dataset.sparse_node_features,
+                       label_emb_idx=cur_label_emb_idx)
         loss = dataset.loss_fn(input=logits[cur_train_idx], target=dataset.labels[cur_train_idx])
 
     scaler.scale(loss).backward()
@@ -86,7 +87,8 @@ def evaluate(model, dataset, amp=False):
     label_emb_idx_for_eval = dataset.get_label_idx_for_evaluation()
 
     with autocast(enabled=amp):
-        logits = model(graph=dataset.graph, x=dataset.node_features, label_emb_idx=label_emb_idx_for_eval)
+        logits = model(graph=dataset.graph, x=dataset.node_features, x_sparse=dataset.sparse_node_features,
+                       label_emb_idx=label_emb_idx_for_eval)
 
     metrics = dataset.compute_metrics(logits)
 
@@ -120,6 +122,7 @@ def main():
         model = Model(model_name=args.model,
                       num_layers=args.num_layers,
                       input_dim=dataset.num_node_features,
+                      sparse_input_dim=dataset.num_sparse_node_features,
                       hidden_dim=args.hidden_dim,
                       output_dim=dataset.num_targets,
                       hidden_dim_multiplier=args.hidden_dim_multiplier,

@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.cuda.amp import autocast
 from modules import (ResidualModuleWrapper, FeedForwardModule, GCNModule, SAGEModule, GATModule,
                      TransformerAttentionModule)
 
@@ -21,9 +22,9 @@ NORMALIZATION = {
 
 
 class Model(nn.Module):
-    def __init__(self, model_name, num_layers, input_dim, hidden_dim, output_dim, hidden_dim_multiplier, num_heads,
-                 normalization, dropout, use_label_embeddings=False, label_embedding_bag=False,
-                 num_label_embeddings=None, label_embedding_dim=128):
+    def __init__(self, model_name, num_layers, input_dim, sparse_input_dim, hidden_dim, output_dim,
+                 hidden_dim_multiplier, num_heads, normalization, dropout, use_label_embeddings=False,
+                 label_embedding_bag=False, num_label_embeddings=None, label_embedding_dim=128):
 
         super().__init__()
 
@@ -40,7 +41,11 @@ class Model(nn.Module):
                 self.label_embeddings = nn.Embedding(num_embeddings=num_label_embeddings,
                                                      embedding_dim=label_embedding_dim)
 
-        self.input_linear = nn.Linear(in_features=input_dim, out_features=hidden_dim)
+        if input_dim > 0:
+            self.input_linear = nn.Linear(in_features=input_dim, out_features=hidden_dim)
+        if sparse_input_dim > 0:
+            self.sparse_input_linear = nn.Linear(in_features=sparse_input_dim, out_features=hidden_dim)
+
         self.dropout = nn.Dropout(p=dropout)
         self.act = nn.GELU()
 
@@ -59,12 +64,21 @@ class Model(nn.Module):
         self.output_normalization = normalization(hidden_dim)
         self.output_linear = nn.Linear(in_features=hidden_dim, out_features=output_dim)
 
-    def forward(self, graph, x, label_emb_idx=None):
+    def forward(self, graph, x, x_sparse=None, label_emb_idx=None):
         if self.use_label_embeddings:
             label_embeddings = self.label_embeddings(label_emb_idx)
-            x = torch.cat([x, label_embeddings], axis=1)
+            x = torch.cat([x, label_embeddings], axis=1) if x is not None else label_embeddings
 
-        x = self.input_linear(x)
+        if x_sparse is None:
+            x = self.input_linear(x)
+        elif x is None:
+            with autocast(enabled=False):
+                x = self.sparse_input_linear(x_sparse)
+        else:
+            x = self.input_linear(x)
+            with autocast(enabled=False):
+                x += self.sparse_input_linear(x_sparse)
+
         x = self.dropout(x)
         x = self.act(x)
 
