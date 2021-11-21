@@ -73,61 +73,23 @@ class Dataset:
         if num_targets == 1 or multilabel:
             labels = labels.float()
 
-        n = graph.num_nodes()
-        sparse_node_features = torch.sparse_coo_tensor(size=(n, 0))
-
-        if use_sgc_features:
-            sgc_features = self.compute_sgc_features(graph, node_features)
-            node_features = torch.cat([node_features, sgc_features], axis=1)
-
-        if use_identity_features:
-            indices = torch.vstack([torch.arange(n), torch.arange(n)])
-            values = torch.ones(n)
-            identity_matrix = torch.sparse_coo_tensor(indices=indices, values=values, size=(n, n))
-            sparse_node_features = torch.cat([sparse_node_features, identity_matrix], axis=1)
-
-        if use_degree_features:
-            degree_features = self.get_degree_features(graph)
-            node_features = torch.cat([node_features, degree_features], axis=1)
-
-        if use_adjacency_features:
-            graph_without_self_loops = dgl.remove_self_loop(graph)
-            adj_matrix = graph_without_self_loops.adjacency_matrix()
-            sparse_node_features = torch.cat([sparse_node_features, adj_matrix], axis=1)
-
-        if use_adjacency_squared_features:
-            graph_without_self_loops = dgl.remove_self_loop(graph)
-            adj_matrix = graph_without_self_loops.adjacency_matrix()
-            adj_matrix_squared = torch.sparse.mm(adj_matrix, adj_matrix)
-            sparse_node_features = torch.cat([sparse_node_features, adj_matrix_squared], axis=1)
-
-        if use_centrality_features:
-            centrality_features = self.get_centrality_features(name, graph)
-            node_features = torch.cat([node_features, centrality_features], axis=1)
-
-        if use_sbm_features:
-            sbm_features = self.get_sbm_features(name, graph)
-            node_features = torch.cat([node_features, sbm_features], axis=1)
-
-        if use_rolx_features:
-            rolx_features = self.get_rolx_features(name, graph)
-            node_features = torch.cat([node_features, rolx_features], axis=1)
-
-        if use_graphlet_features:
-            graphlet_features = self.get_graphlet_features(name, graph)
-            node_features = torch.cat([node_features, graphlet_features], axis=1)
-
-        if use_spectral_features:
-            spectral_features = self.get_spectral_features(name)
-            node_features = torch.cat([node_features, spectral_features], axis=1)
-
-        if use_deepwalk_features:
-            deepwalk_features = self.get_deepwalk_features(name)
-            node_features = torch.cat([node_features, deepwalk_features], axis=1)
-
-        if use_struc2vec_features:
-            struc2vec_features = self.get_struc2vec_features(name)
-            node_features = torch.cat([node_features, struc2vec_features], axis=1)
+        node_features, sparse_node_features = self.augment_node_features(
+            name=name,
+            graph=graph,
+            node_features=node_features,
+            use_sgc_features=use_sgc_features,
+            use_identity_features=use_identity_features,
+            use_degree_features=use_degree_features,
+            use_adjacency_features=use_adjacency_features,
+            use_adjacency_squared_features=use_adjacency_squared_features,
+            use_centrality_features=use_centrality_features,
+            use_sbm_features=use_sbm_features,
+            use_rolx_features=use_rolx_features,
+            use_graphlet_features=use_graphlet_features,
+            use_spectral_features=use_spectral_features,
+            use_deepwalk_features=use_deepwalk_features,
+            use_struc2vec_features=use_struc2vec_features
+        )
 
         graph = graph.to(device)
         node_features = node_features.to(device)
@@ -416,6 +378,70 @@ class Dataset:
             test_idx_list.append(test_idx.sort()[0])
 
         return train_idx_list, val_idx_list, test_idx_list
+
+    @classmethod
+    def augment_node_features(cls, name, graph, node_features, use_sgc_features, use_identity_features,
+                              use_degree_features, use_adjacency_features, use_adjacency_squared_features,
+                              use_centrality_features, use_sbm_features, use_rolx_features, use_graphlet_features,
+                              use_spectral_features, use_deepwalk_features, use_struc2vec_features):
+
+        n = graph.num_nodes()
+        sparse_node_features = torch.sparse_coo_tensor(size=(n, 0))
+
+        if use_sgc_features:
+            sgc_features = cls.compute_sgc_features(graph, node_features)
+            node_features = torch.cat([node_features, sgc_features], axis=1)
+
+        if use_identity_features:
+            indices = torch.vstack([torch.arange(n), torch.arange(n)])
+            values = torch.ones(n)
+            identity_matrix = torch.sparse_coo_tensor(indices=indices, values=values, size=(n, n))
+            sparse_node_features = torch.cat([sparse_node_features, identity_matrix], axis=1)
+
+        if use_degree_features:
+            degree_features = cls.get_degree_features(graph)
+            node_features = torch.cat([node_features, degree_features], axis=1)
+
+        if use_adjacency_features:
+            graph_without_self_loops = dgl.remove_self_loop(graph)
+            adj_matrix = graph_without_self_loops.adjacency_matrix()
+            sparse_node_features = torch.cat([sparse_node_features, adj_matrix], axis=1)
+
+        if use_adjacency_squared_features:
+            graph_without_self_loops = dgl.remove_self_loop(graph)
+            adj_matrix = graph_without_self_loops.adjacency_matrix()
+            adj_matrix_squared = torch.sparse.mm(adj_matrix, adj_matrix)
+            sparse_node_features = torch.cat([sparse_node_features, adj_matrix_squared], axis=1)
+
+        if use_centrality_features:
+            centrality_features = cls.get_centrality_features(name, graph)
+            node_features = torch.cat([node_features, centrality_features], axis=1)
+
+        if use_sbm_features:
+            sbm_features = cls.get_sbm_features(name, graph)
+            node_features = torch.cat([node_features, sbm_features], axis=1)
+
+        if use_rolx_features:
+            rolx_features = cls.get_rolx_features(name, graph)
+            node_features = torch.cat([node_features, rolx_features], axis=1)
+
+        if use_graphlet_features:
+            graphlet_features = cls.get_graphlet_features(name, graph)
+            node_features = torch.cat([node_features, graphlet_features], axis=1)
+
+        if use_spectral_features:
+            spectral_features = cls.get_spectral_features(name)
+            node_features = torch.cat([node_features, spectral_features], axis=1)
+
+        if use_deepwalk_features:
+            deepwalk_features = cls.get_deepwalk_features(name)
+            node_features = torch.cat([node_features, deepwalk_features], axis=1)
+
+        if use_struc2vec_features:
+            struc2vec_features = cls.get_struc2vec_features(name)
+            node_features = torch.cat([node_features, struc2vec_features], axis=1)
+
+        return node_features, sparse_node_features
 
     @staticmethod
     def compute_sgc_features(graph, node_features, num_props=5):
