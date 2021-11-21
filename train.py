@@ -21,21 +21,31 @@ def get_args():
                                  'flickr', 'yelp', 'cora', 'citeseer', 'pubmed', 'fraud-yelp-chi', 'fraud-amazon',
                                  'airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu',
                                  'deezer-ro', 'blogcatalog', 'ppi', 'wikipedia'])
+
+    # model architecture
     parser.add_argument('--model', type=str, default='GT', choices=['ResNet', 'GCN', 'SAGE', 'GAT', 'GT'])
     parser.add_argument('--num_layers', type=int, default=5)
     parser.add_argument('--hidden_dim', type=int, default=512)
     parser.add_argument('--hidden_dim_multiplier', type=float, default=1)
     parser.add_argument('--num_heads', type=int, default=8)
     parser.add_argument('--normalization', type=str, default='LayerNorm', choices=['None', 'LayerNorm', 'BatchNorm'])
+
+    # regularization
     parser.add_argument('--dropout', type=float, default=0)
+    parser.add_argument('--weight_decay', type=float, default=0)
+
+    # training parameters
     parser.add_argument('--lr', type=float, default=3e-5)
     parser.add_argument('--num_steps', type=int, default=1000)
     parser.add_argument('--num_warmup_steps', type=int, default=None,
                         help='If None, warmup_proportion is used instead.')
     parser.add_argument('--warmup_proportion', type=float, default=0, help='Only used if num_warmup_steps is None.')
-    parser.add_argument('--weight_decay', type=float, default=0)
+
+    # label embeddings
     parser.add_argument('--input_labels_proportion', type=float, default=0)
     parser.add_argument('--label_embedding_dim', type=int, default=128)
+
+    # node feature augmentation
     parser.add_argument('--use_sgc_features', default=False, action='store_true')
     parser.add_argument('--use_identity_features', default=False, action='store_true')
     parser.add_argument('--use_degree_features', default=False, action='store_true')
@@ -48,9 +58,11 @@ def get_args():
     parser.add_argument('--use_spectral_features', default=False, action='store_true')
     parser.add_argument('--use_deepwalk_features', default=False, action='store_true')
     parser.add_argument('--use_struc2vec_features', default=False, action='store_true')
+
     parser.add_argument('--num_runs', type=int, default=10)
     parser.add_argument('--num_data_splits', type=int, default=10,
                         help='Only used for datasets that do not have standard data splits.')
+
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--amp', default=False, action='store_true')
     parser.add_argument('--verbose', default=False, action='store_true')
@@ -102,6 +114,7 @@ def main():
                       add_self_loops=(args.model in ['GCN', 'GAT', 'GT']),
                       num_data_splits=args.num_data_splits,
                       input_labels_proportion=args.input_labels_proportion,
+                      device=args.device,
                       use_sgc_features=args.use_sgc_features,
                       use_identity_features=args.use_identity_features,
                       use_degree_features=args.use_degree_features,
@@ -113,8 +126,7 @@ def main():
                       use_graphlet_features=args.use_graphlet_features,
                       use_spectral_features=args.use_spectral_features,
                       use_deepwalk_features=args.use_deepwalk_features,
-                      use_struc2vec_features=args.use_struc2vec_features,
-                      device=args.device)
+                      use_struc2vec_features=args.use_struc2vec_features)
 
     logger = Logger(args, metric=dataset.metric, num_data_splits=dataset.num_data_splits)
 
