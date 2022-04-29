@@ -58,6 +58,7 @@ def get_args():
     parser.add_argument('--use_spectral_features', default=False, action='store_true')
     parser.add_argument('--use_deepwalk_features', default=False, action='store_true')
     parser.add_argument('--use_struc2vec_features', default=False, action='store_true')
+    parser.add_argument('--do_not_use_original_features', default=False, action='store_true')
 
     parser.add_argument('--num_runs', type=int, default=10)
     parser.add_argument('--num_data_splits', type=int, default=10,
@@ -126,7 +127,8 @@ def main():
                       use_graphlet_features=args.use_graphlet_features,
                       use_spectral_features=args.use_spectral_features,
                       use_deepwalk_features=args.use_deepwalk_features,
-                      use_struc2vec_features=args.use_struc2vec_features)
+                      use_struc2vec_features=args.use_struc2vec_features,
+                      do_not_use_original_features=args.do_not_use_original_features)
 
     logger = Logger(args, metric=dataset.metric, num_data_splits=dataset.num_data_splits)
 
