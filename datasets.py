@@ -37,21 +37,32 @@ class Dataset:
                  use_sgc_features=False, use_identity_features=False, use_degree_features=False,
                  use_adjacency_features=False, use_adjacency_squared_features=False, use_centrality_features=False,
                  use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
-                 use_spectral_features=False, use_deepwalk_features=False, use_struc2vec_features=False):
+                 use_spectral_features=False, use_deepwalk_features=False, use_struc2vec_features=False,
+                 do_not_use_original_features=False):
+
+        additional_features = [use_sgc_features, use_identity_features, use_degree_features, use_adjacency_features,
+                               use_adjacency_squared_features, use_centrality_features, use_sbm_features,
+                               use_rolx_features, use_graphlet_features, use_spectral_features,
+                               use_deepwalk_features, use_struc2vec_features]
 
         if name in self.no_features_names:
             if use_sgc_features:
                 raise ValueError('SGC features cannot be used for datasets without node features. '
                                  'The argument use_sgc_features should be omitted.')
 
-            if not any([use_identity_features, use_degree_features, use_adjacency_features,
-                        use_adjacency_squared_features, use_centrality_features, use_sbm_features, use_rolx_features,
-                        use_graphlet_features, use_spectral_features, use_deepwalk_features, use_struc2vec_features]):
+            if not any(additional_features[1:]):
                 raise ValueError('For datasets without node features at least one of the arguments '
                                  'use_identity_features, use_degree_features, use_adjacency_features, '
                                  'use_adjacency_squared_features, use_centrality_features, use_sbm_features, '
                                  'use_rolx_features, use_graphlet_features, use_spectral_features, '
                                  'use_deepwalk_features, use_struc2vec_features should be used.')
+
+        if do_not_use_original_features and not any(additional_features):
+            raise ValueError('If original node features are not used, at least one of the arguments '
+                             'use_sgc_features, use_identity_features, use_degree_features, use_adjacency_features, '
+                             'use_adjacency_squared_features, use_centrality_features, use_sbm_features, '
+                             'use_rolx_features, use_graphlet_features, use_spectral_features, '
+                             'use_deepwalk_features, use_struc2vec_features should be used.')
 
         print('Preparing data...')
         graph, node_features, labels, train_idx_list, val_idx_list, test_idx_list = self.get_data(name, num_data_splits)
@@ -88,7 +99,8 @@ class Dataset:
             use_graphlet_features=use_graphlet_features,
             use_spectral_features=use_spectral_features,
             use_deepwalk_features=use_deepwalk_features,
-            use_struc2vec_features=use_struc2vec_features
+            use_struc2vec_features=use_struc2vec_features,
+            do_not_use_original_features=do_not_use_original_features
         )
 
         graph = graph.to(device)
@@ -484,13 +496,18 @@ class Dataset:
     def augment_node_features(name, graph, node_features, use_sgc_features, use_identity_features,
                               use_degree_features, use_adjacency_features, use_adjacency_squared_features,
                               use_centrality_features, use_sbm_features, use_rolx_features, use_graphlet_features,
-                              use_spectral_features, use_deepwalk_features, use_struc2vec_features):
+                              use_spectral_features, use_deepwalk_features, use_struc2vec_features,
+                              do_not_use_original_features):
 
         n = graph.num_nodes()
         sparse_node_features = torch.sparse_coo_tensor(size=(n, 0))
 
+        original_node_features = node_features
+        if do_not_use_original_features:
+            node_features = torch.tensor([[] for _ in range(n)])
+
         if use_sgc_features:
-            sgc_features = Dataset.compute_sgc_features(graph, node_features)
+            sgc_features = Dataset.compute_sgc_features(graph, original_node_features)
             node_features = torch.cat([node_features, sgc_features], axis=1)
 
         if use_identity_features:
