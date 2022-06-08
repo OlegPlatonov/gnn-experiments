@@ -59,6 +59,9 @@ def get_args():
     parser.add_argument('--use_deepwalk_features', default=False, action='store_true')
     parser.add_argument('--use_struc2vec_features', default=False, action='store_true')
     parser.add_argument('--do_not_use_original_features', default=False, action='store_true')
+    parser.add_argument('--sparse_features_to_dense', default=False, action='store_true',
+                        help='Convert sparse node features to dense. This requires more memory, '
+                             'but can make training faster.')
 
     parser.add_argument('--num_runs', type=int, default=10)
     parser.add_argument('--num_data_splits', type=int, default=10,
@@ -128,7 +131,8 @@ def main():
                       use_spectral_features=args.use_spectral_features,
                       use_deepwalk_features=args.use_deepwalk_features,
                       use_struc2vec_features=args.use_struc2vec_features,
-                      do_not_use_original_features=args.do_not_use_original_features)
+                      do_not_use_original_features=args.do_not_use_original_features,
+                      sparse_features_to_dense=args.sparse_features_to_dense)
 
     logger = Logger(args, metric=dataset.metric, num_data_splits=dataset.num_data_splits)
 

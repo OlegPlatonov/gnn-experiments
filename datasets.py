@@ -38,7 +38,7 @@ class Dataset:
                  use_adjacency_features=False, use_adjacency_squared_features=False, use_centrality_features=False,
                  use_sbm_features=False, use_rolx_features=False, use_graphlet_features=False,
                  use_spectral_features=False, use_deepwalk_features=False, use_struc2vec_features=False,
-                 do_not_use_original_features=False):
+                 do_not_use_original_features=False, sparse_features_to_dense=False):
 
         additional_features = [use_sgc_features, use_identity_features, use_degree_features, use_adjacency_features,
                                use_adjacency_squared_features, use_centrality_features, use_sbm_features,
@@ -100,7 +100,8 @@ class Dataset:
             use_spectral_features=use_spectral_features,
             use_deepwalk_features=use_deepwalk_features,
             use_struc2vec_features=use_struc2vec_features,
-            do_not_use_original_features=do_not_use_original_features
+            do_not_use_original_features=do_not_use_original_features,
+            sparse_features_to_dense=sparse_features_to_dense
         )
 
         graph = graph.to(device)
@@ -497,7 +498,7 @@ class Dataset:
                               use_degree_features, use_adjacency_features, use_adjacency_squared_features,
                               use_centrality_features, use_sbm_features, use_rolx_features, use_graphlet_features,
                               use_spectral_features, use_deepwalk_features, use_struc2vec_features,
-                              do_not_use_original_features):
+                              do_not_use_original_features, sparse_features_to_dense):
 
         n = graph.num_nodes()
         sparse_node_features = torch.sparse_coo_tensor(size=(n, 0))
@@ -558,6 +559,10 @@ class Dataset:
         if use_struc2vec_features:
             struc2vec_features = Dataset.get_struc2vec_features(name)
             node_features = torch.cat([node_features, struc2vec_features], axis=1)
+
+        if sparse_features_to_dense:
+            node_features = torch.cat([node_features, sparse_node_features.to_dense()], axis=1)
+            sparse_node_features = torch.sparse_coo_tensor(size=(n, 0))
 
         return node_features, sparse_node_features
 
