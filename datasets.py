@@ -22,8 +22,9 @@ class Dataset:
     ogb_dataset_names = ['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins', 'ogbn-mag']
     pyg_dataset_names = ['squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                          'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru', 'flickr', 'yelp',
-                         'cora', 'citeseer', 'pubmed', 'airports-usa', 'airports-europe', 'airports-brazil',
-                         'deezer-hr', 'deezer-hu', 'deezer-ro']
+                         'cora', 'citeseer', 'pubmed', 'coauthor-cs', 'coauthor-physics', 'amazon-computers',
+                         'amazon-photo', 'airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu',
+                         'deezer-ro']
     dgl_dataset_names = ['fraud-yelp-chi', 'fraud-amazon']
     other_dataset_names = ['blogcatalog', 'ppi', 'wikipedia']
 
@@ -414,6 +415,12 @@ class Dataset:
             dataset = pyg_datasets.Yelp(root=default_root)
         elif name in ['cora', 'citeseer', 'pubmed']:
             dataset = pyg_datasets.Planetoid(root=default_root, name=name)
+        elif name in ['coauthor-cs', 'coauthor-physics']:
+            field = name.split('-')[1]
+            dataset = pyg_datasets.Coauthor(root=os.path.join('data', 'coauthor'), name=field)
+        elif name in ['amazon-computers', 'amazon-photo']:
+            product = name.split('-')[1]
+            dataset = pyg_datasets.Amazon(root=os.path.join('data', 'amazon'), name=product)
         elif name in ['airports-usa', 'airports-europe', 'airports-brazil']:
             location = name.split('-')[1]
             dataset = pyg_datasets.Airports(root=os.path.join('data', 'airports'), name=location)
@@ -580,6 +587,12 @@ class Dataset:
         elif name in ['twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru']:
             country = name.split('-')[1].upper()
             return os.path.join('data', 'twitch', country)
+        elif name in ['coauthor-cs', 'coauthor-physics']:
+            field = 'CS' if name == 'coauthor-cs' else 'Physics'
+            return os.path.join('data', 'coauthor', field)
+        elif name in ['amazon-computers', 'amazon-photo']:
+            product = 'Computers' if name == 'amazon-computers' else 'Photo'
+            return os.path.join('data', 'amazon', product)
         elif name in ['airports-usa', 'airports-europe', 'airports-brazil']:
             location = name.split('-')[1]
             return os.path.join('data', 'airports', location)
