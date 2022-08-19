@@ -1,0 +1,14 @@
+name: gnn
+channels:
+  - pytorch
+  - dglteam
+dependencies:
+  - pip
+  - tqdm
+  - pyyaml
+  - numpy
+  - cudatoolkit=11.3
+  - pytorch
+  - dgl-cuda11.3
+  - pip:
+    - ogb
