@@ -18,9 +18,10 @@ def get_args():
                         choices=['ogbn-arxiv', 'ogbn-products', 'ogbn-papers100M', 'ogbn-proteins', 'ogbn-mag',
                                  'squirrel', 'chameleon', 'actor', 'deezer-europe', 'lastfm-asia', 'facebook', 'github',
                                  'twitch-de', 'twitch-en', 'twitch-es', 'twitch-fr', 'twitch-pt', 'twitch-ru',
-                                 'flickr', 'yelp', 'cora', 'citeseer', 'pubmed', 'fraud-yelp-chi', 'fraud-amazon',
-                                 'airports-usa', 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu',
-                                 'deezer-ro', 'blogcatalog', 'ppi', 'wikipedia'])
+                                 'flickr', 'yelp', 'cora', 'citeseer', 'pubmed', 'coauthor-cs', 'coauthor-physics',
+                                 'amazon-computers', 'amazon-photo', 'fraud-yelp-chi', 'fraud-amazon', 'airports-usa',
+                                 'airports-europe', 'airports-brazil', 'deezer-hr', 'deezer-hu', 'deezer-ro',
+                                 'blogcatalog', 'ppi', 'wikipedia'])
 
     # model architecture
     parser.add_argument('--model', type=str, default='GT', choices=['ResNet', 'GCN', 'SAGE', 'GAT', 'GT'])
